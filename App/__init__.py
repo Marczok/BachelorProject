@@ -121,19 +121,19 @@ def count_rounded_average_percents(a, b):
 class DataProcessing:
     @staticmethod
     def create_lists_from_data(data_input):
-        times = []
-        levels = []
-        levels_as_word = []
-        duration = []
+        times_output = []
+        levels_output = []
+        levels_as_word_output = []
+        duration_output = []
         for item in data_input:
-            times.append(item["dateTime"][11:-7])
-            levels_as_word.append(item["level"])
-            levels.append(parsing.sleep_to_number(item["level"]))
-            duration.append(item["seconds"])
-        return times, levels, levels_as_word, duration
+            times_output.append(item["dateTime"][11:-7])
+            levels_as_word_output.append(item["level"])
+            levels_output.append(parsing.sleep_to_number(item["level"]))
+            duration_output.append(item["seconds"])
+        return times_output, levels_output, levels_as_word_output, duration_output
 
     @staticmethod
-    def count_sleep_statistics(sleep_data_input):
+    def count_sleep_statistics(sleep_data_input, times_input, levels_input, levels_as_word_input, duration_input):
         summary = sleep_data_input['levels']['summary']
 
         total_sleep_in_minutes = int(sleep_data_input['timeInBed'])
@@ -158,6 +158,8 @@ class DataProcessing:
         wake_count = int(summary['wake']['count'])
         all_count = deep_count + light_count + rem_count + wake_count
 
+        phase_duration_average_in_minutes = total_sleep_in_minutes/len(duration_input)
+
         return [
             name,
             total_sleep_in_minutes,
@@ -175,7 +177,8 @@ class DataProcessing:
             deep_count,
             light_count,
             rem_count,
-            wake_count
+            wake_count,
+            round(phase_duration_average_in_minutes)
         ]
 
 
@@ -219,14 +222,15 @@ if __name__ == '__main__':
             "Deep (min)",
             "Light (min)",
             "Rem (min)",
-            "Deep average (%)",
-            "Light average (%)",
-            "Rem average (%)",
+            "Deep (%)",
+            "Light (%)",
+            "Rem (%)",
             "All count",
             "Deep count",
             "Light count",
             "Rem count",
             "Wake count",
+            "Phase duration average (min)"
 
         ]]
 
@@ -246,10 +250,10 @@ if __name__ == '__main__':
             (times, levels, levels_as_word, duration) = data_processing.create_lists_from_data(data)
             if times and levels and levels_as_word and duration:
                 csv_save.save_to_csv(times, levels, levels_as_word, duration, name)
-                chart_class.create_chart(levels, times, duration, name)
+                # chart_class.create_chart(levels, times, duration, name)
 
             if not date == '2018-05-04':
-                statics = data_processing.count_sleep_statistics(sleep[0])
+                statics = data_processing.count_sleep_statistics(sleep[0], times, levels, levels_as_word, duration)
                 statistics_data.append(statics)
 
         csv_save.save_statistics_to_csv(statistics_data)
