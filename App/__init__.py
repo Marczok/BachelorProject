@@ -376,6 +376,7 @@ if __name__ == '__main__':
                 statics = data_processing.count_sleep_statistics(sleep[0], levels, duration, name)
                 statistics_data.append(statics)
 
+        statistics_data = zip(*statistics_data)
         csv_save.save_statistics_to_csv(statistics_data)
 
     except mysql.connector.Error as err:
