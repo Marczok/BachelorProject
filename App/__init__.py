@@ -113,9 +113,84 @@ class DatabaseWorks:
         for (timestamp, battery_level) in cursor_input:
             print(parsing_input.parse_time(timestamp), "\t", battery_level)
 
+    @staticmethod
+    def print_ambient_noise(cursor_input, parsing_input):
+        query = \
+            "SELECT timestamp,double_decibels FROM plugin_ambient_noise"
+        cursor_input.execute(query)
+        for (timestamp, double_decibels) in cursor_input:
+            print("{} | {}".format(parsing.parse_time(timestamp), double_decibels))
+
 
 def count_rounded_average_percents(a, b):
     return int(round(a / b * 100))
+
+
+def safe_get(input_data, index):
+    if index < len(input_data):
+        return input_data[index]
+    else:
+        return 10000
+
+
+def count_number_of_changes_by_one_two_and_three_wrong(input_data):
+    one_phase = 0
+    two_phases = 0
+    three_phases = 0
+    for i in range(0, len(input_data)):
+        if i < len(input_data):
+            a = safe_get(input_data, i)
+            b = safe_get(input_data, i + 1)
+            c = safe_get(input_data, i + 2)
+            d = safe_get(input_data, i + 3)
+            if a == c:
+                one_phase = one_phase + 1
+            elif b == d:
+                two_phases = two_phases + 1
+            else:
+                three_phases = three_phases + 1
+    return one_phase, two_phases, three_phases
+
+
+def count_number_of_changes_by_one_two_and_three(input_data):
+    one_phase = 0
+    two_phases = 0
+    three_phases = 0
+    for i in range(0, len(input_data)):
+        if i < len(input_data):
+            a = safe_get(input_data, i)
+            b = safe_get(input_data, i + 1)
+            if abs(a - b) == 1:
+                one_phase = one_phase + 1
+            elif abs(a - b) == 2:
+                two_phases = two_phases + 1
+            else:
+                three_phases = three_phases + 1
+    return one_phase, two_phases, three_phases
+
+
+def count_number_of_phases(input_data):
+    deep = 0
+    light = 0
+    rem = 0
+    awake = 0
+    for i in input_data:
+        if i == 1:
+            deep = deep + 1
+        elif i == 2:
+            light = light + 1
+        elif i == 3:
+            rem = rem + 1
+        else:
+            awake = awake + 1
+    return deep, light, rem, awake
+
+
+def count_sleep_duration(input_data):
+    duration_counter = 0
+    for x in input_data:
+        duration_counter = duration_counter + x
+    return duration_counter
 
 
 class DataProcessing:
@@ -152,13 +227,13 @@ class DataProcessing:
         light_in_percents = count_rounded_average_percents(light_in_minutes, sleep_in_minutes)
         rem_in_percents = count_rounded_average_percents(rem_in_minutes, sleep_in_minutes)
 
-        deep_count = int(summary['deep']['count'])
-        light_count = int(summary['light']['count'])
-        rem_count = int(summary['rem']['count'])
-        wake_count = int(summary['wake']['count'])
+        (deep_count, light_count, rem_count, wake_count) = count_number_of_phases(levels)
+
         all_count = deep_count + light_count + rem_count + wake_count
 
-        phase_duration_average_in_minutes = total_sleep_in_minutes/len(duration_input)
+        phase_duration_average_in_minutes = total_sleep_in_minutes / len(duration_input)
+
+        (one, two, three) = count_number_of_changes_by_one_two_and_three(levels)
 
         return [
             name,
@@ -178,6 +253,9 @@ class DataProcessing:
             light_count,
             rem_count,
             wake_count,
+            one,
+            two,
+            three,
             round(phase_duration_average_in_minutes)
         ]
 
@@ -199,6 +277,8 @@ if __name__ == '__main__':
         database.print_last_sync_info(cursor, parsing)
         print("\n##################################################################################\n")
         database.print_fitbit_sync_info(cursor, parsing)
+        print("\n##################################################################################\n")
+        database.print_ambient_noise(cursor, parsing)
         print("\n##################################################################################\n")
 
         # Data processing
@@ -230,12 +310,19 @@ if __name__ == '__main__':
             "Light count",
             "Rem count",
             "Wake count",
+            "Change by one",
+            "Change by two",
+            "Change by three",
             "Phase duration average (min)"
 
         ]]
 
+        dates = []
         for sleep in sleeps:
             date = sleep[0]['dateOfSleep']
+            if date in dates:
+                continue
+            dates.append(date)
             if date <= '2018-05-04':
                 name = date + " Travnickova"
             else:
