@@ -7,6 +7,7 @@ import json
 from mysql.connector import errorcode
 import csv
 import credentials as cr
+import statistics as stat
 
 
 class Parsing:
@@ -193,6 +194,13 @@ def count_sleep_duration(input_data):
     return duration_counter
 
 
+def transform_duration_to_minutes(input_data):
+    duration_in_minutes_output = []
+    for x in input_data:
+        duration_in_minutes_output.append(x / 60)
+    return duration_in_minutes_output
+
+
 class DataProcessing:
     @staticmethod
     def create_lists_from_data(data_input):
@@ -208,55 +216,73 @@ class DataProcessing:
         return times_output, levels_output, levels_as_word_output, duration_output
 
     @staticmethod
-    def count_sleep_statistics(sleep_data_input, times_input, levels_input, levels_as_word_input, duration_input):
+    def count_sleep_statistics(sleep_data_input, levels_input, duration_input, input_name):
         summary = sleep_data_input['levels']['summary']
 
         total_sleep_in_minutes = int(sleep_data_input['timeInBed'])
 
-        sleep_in_minutes = int(sleep_data_input['minutesAsleep'])
-        sleep_in_percents = count_rounded_average_percents(sleep_in_minutes, total_sleep_in_minutes)
-
-        wake_in_minutes = int(sleep_data_input['minutesAwake'])
-        wake_in_percents = count_rounded_average_percents(wake_in_minutes, total_sleep_in_minutes)
-
         deep_in_minutes = int(summary['deep']['minutes'])
         light_in_minutes = int(summary['light']['minutes'])
         rem_in_minutes = int(summary['rem']['minutes'])
+        wake_in_minutes = int(sleep_data_input['minutesAwake'])
 
-        deep_in_percents = count_rounded_average_percents(deep_in_minutes, sleep_in_minutes)
-        light_in_percents = count_rounded_average_percents(light_in_minutes, sleep_in_minutes)
-        rem_in_percents = count_rounded_average_percents(rem_in_minutes, sleep_in_minutes)
+        deep_in_percents = count_rounded_average_percents(deep_in_minutes, total_sleep_in_minutes)
+        light_in_percents = count_rounded_average_percents(light_in_minutes, total_sleep_in_minutes)
+        rem_in_percents = count_rounded_average_percents(rem_in_minutes, total_sleep_in_minutes)
+        wake_in_percents = count_rounded_average_percents(wake_in_minutes, total_sleep_in_minutes)
 
-        (deep_count, light_count, rem_count, wake_count) = count_number_of_phases(levels)
+        phase_duration_average_in_minutes = round(total_sleep_in_minutes / len(levels_input))
+        phase_duration_average_in_percents = \
+            count_rounded_average_percents(phase_duration_average_in_minutes, total_sleep_in_minutes)
 
+        duration_data_in_minutes = transform_duration_to_minutes(duration_input)
+        deviation_in_minutes = round(stat.stdev(duration_data_in_minutes))
+        deviation_in_percents = count_rounded_average_percents(deviation_in_minutes, total_sleep_in_minutes)
+
+        (deep_count, light_count, rem_count, wake_count) = count_number_of_phases(levels_input)
         all_count = deep_count + light_count + rem_count + wake_count
+        if all_count != len(levels_input):
+            raise ValueError('Phases count is wrong counted')
+        deep_count_in_percents = count_rounded_average_percents(deep_count, all_count)
+        light_count_in_percents = count_rounded_average_percents(light_count, all_count)
+        rem_count_in_percents = count_rounded_average_percents(rem_count, all_count)
+        wake_count_in_percents = count_rounded_average_percents(wake_count, all_count)
 
-        phase_duration_average_in_minutes = total_sleep_in_minutes / len(duration_input)
-
-        (one, two, three) = count_number_of_changes_by_one_two_and_three(levels)
+        (one, two, three) = count_number_of_changes_by_one_two_and_three(levels_input)
+        one_in_percents = count_rounded_average_percents(one, all_count)
+        two_in_percents = count_rounded_average_percents(two, all_count)
+        three_in_percents = count_rounded_average_percents(three, all_count)
 
         return [
-            name,
+            input_name,
             total_sleep_in_minutes,
-            sleep_in_minutes,
-            wake_in_minutes,
-            sleep_in_percents,
-            wake_in_percents,
             deep_in_minutes,
             light_in_minutes,
             rem_in_minutes,
+            wake_in_minutes,
             deep_in_percents,
             light_in_percents,
             rem_in_percents,
+            wake_in_percents,
+            phase_duration_average_in_minutes,
+            phase_duration_average_in_percents,
+            deviation_in_minutes,
+            deviation_in_percents,
             all_count,
             deep_count,
             light_count,
             rem_count,
             wake_count,
+            deep_count_in_percents,
+            light_count_in_percents,
+            rem_count_in_percents,
+            wake_count_in_percents,
             one,
             two,
             three,
-            round(phase_duration_average_in_minutes)
+            one_in_percents,
+            two_in_percents,
+            three_in_percents
         ]
 
 
@@ -295,26 +321,33 @@ if __name__ == '__main__':
         statistics_data = [[
             "Date and name",
             "Total (min)",
-            "Sleep (min)",
-            "Wake (min)",
-            "Sleep (%)",
-            "Wake (%)",
             "Deep (min)",
             "Light (min)",
-            "Rem (min)",
+            "REM (min)",
+            "Wake (min)",
             "Deep (%)",
             "Light (%)",
             "Rem (%)",
-            "All count",
+            "Wake (%)",
+            "Average (min)",
+            "Average (%)",
+            "Deviation (min)",
+            "Deviation (%)",
+            "Total count",
             "Deep count",
             "Light count",
             "Rem count",
             "Wake count",
+            "Deep count (%)",
+            "Light count (%)",
+            "Rem count (%)",
+            "Wake count (%)",
             "Change by one",
             "Change by two",
             "Change by three",
-            "Phase duration average (min)"
-
+            "Change by one (%)",
+            "Change by two (%)",
+            "Change by three (%)"
         ]]
 
         dates = []
@@ -340,7 +373,7 @@ if __name__ == '__main__':
                 # chart_class.create_chart(levels, times, duration, name)
 
             if not date == '2018-05-04':
-                statics = data_processing.count_sleep_statistics(sleep[0], times, levels, levels_as_word, duration)
+                statics = data_processing.count_sleep_statistics(sleep[0], levels, duration, name)
                 statistics_data.append(statics)
 
         csv_save.save_statistics_to_csv(statistics_data)
