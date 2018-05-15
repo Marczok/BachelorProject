@@ -8,6 +8,7 @@ from mysql.connector import errorcode
 import csv
 import credentials as cr
 import statistics as stat
+import locale
 
 
 class Parsing:
@@ -66,7 +67,7 @@ class CSVSave:
     @staticmethod
     def save_statistics_to_csv(statistic_data_ipnut):
         with open("../statistics.csv", 'w') as resultFile:
-            wr = csv.writer(resultFile, dialect='excel')
+            wr = csv.writer(resultFile, dialect='excel', delimiter=';')
             wr.writerows(statistic_data_ipnut)
 
 
@@ -300,6 +301,7 @@ class DataProcessing:
 
 
 if __name__ == '__main__':
+    locale.setlocale(locale.LC_ALL, 'czech')
     try:
         cnx = mysql.connector.connect(user=cr.user(),
                                       database=cr.database(),
