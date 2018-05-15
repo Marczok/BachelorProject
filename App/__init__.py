@@ -66,7 +66,7 @@ class CSVSave:
     @staticmethod
     def save_statistics_to_csv(statistic_data_ipnut):
         with open("../statistics.csv", 'w') as resultFile:
-            wr = csv.writer(resultFile, dialect='excel', delimiter=';')
+            wr = csv.writer(resultFile, dialect='excel')
             wr.writerows(statistic_data_ipnut)
 
 
@@ -109,10 +109,13 @@ class DatabaseWorks:
     @staticmethod
     def print_battery_levels(cursor_input, parsing_input):
         query = \
-            "SELECT timestamp, battery_level from battery order by timestamp desc limit 500"
+            "SELECT timestamp, battery_level from battery order by timestamp desc limit 1000"
         cursor_input.execute(query)
+        counter = 0
         for (timestamp, battery_level) in cursor_input:
-            print(parsing_input.parse_time(timestamp), "\t", battery_level)
+            if counter % 50 == 0:
+                print(parsing_input.parse_time(timestamp), "\t", battery_level)
+            counter = counter + 1
 
     @staticmethod
     def print_ambient_noise(cursor_input, parsing_input):
@@ -201,6 +204,10 @@ def transform_duration_to_minutes(input_data):
     return duration_in_minutes_output
 
 
+def minutes_to_hours(minutes):
+    return round(minutes / 60, 2)
+
+
 class DataProcessing:
     @staticmethod
     def create_lists_from_data(data_input):
@@ -220,69 +227,75 @@ class DataProcessing:
         summary = sleep_data_input['levels']['summary']
 
         total_sleep_in_minutes = int(sleep_data_input['timeInBed'])
+        total_sleep_in_hours = minutes_to_hours(total_sleep_in_minutes)
 
         deep_in_minutes = int(summary['deep']['minutes'])
         light_in_minutes = int(summary['light']['minutes'])
         rem_in_minutes = int(summary['rem']['minutes'])
         wake_in_minutes = int(sleep_data_input['minutesAwake'])
+        deep_in_hours = minutes_to_hours(deep_in_minutes)
+        light_in_hours = minutes_to_hours(light_in_minutes)
+        rem_in_hours = minutes_to_hours(rem_in_minutes)
+        wake_in_hours = minutes_to_hours(wake_in_minutes)
 
         deep_in_percents = count_rounded_average_percents(deep_in_minutes, total_sleep_in_minutes)
         light_in_percents = count_rounded_average_percents(light_in_minutes, total_sleep_in_minutes)
         rem_in_percents = count_rounded_average_percents(rem_in_minutes, total_sleep_in_minutes)
         wake_in_percents = count_rounded_average_percents(wake_in_minutes, total_sleep_in_minutes)
 
-        phase_duration_average_in_minutes = round(total_sleep_in_minutes / len(levels_input))
+        phase_duration_average_in_hours = minutes_to_hours(total_sleep_in_minutes / len(levels_input))
         phase_duration_average_in_percents = \
-            count_rounded_average_percents(phase_duration_average_in_minutes, total_sleep_in_minutes)
+            count_rounded_average_percents(phase_duration_average_in_hours, total_sleep_in_hours)
 
         duration_data_in_minutes = transform_duration_to_minutes(duration_input)
         deviation_in_minutes = round(stat.stdev(duration_data_in_minutes))
+        deviation_in_hours = minutes_to_hours(deviation_in_minutes)
         deviation_in_percents = count_rounded_average_percents(deviation_in_minutes, total_sleep_in_minutes)
 
         (deep_count, light_count, rem_count, wake_count) = count_number_of_phases(levels_input)
         all_count = deep_count + light_count + rem_count + wake_count
         if all_count != len(levels_input):
             raise ValueError('Phases count is wrong counted')
-        deep_count_in_percents = count_rounded_average_percents(deep_count, all_count)
-        light_count_in_percents = count_rounded_average_percents(light_count, all_count)
-        rem_count_in_percents = count_rounded_average_percents(rem_count, all_count)
-        wake_count_in_percents = count_rounded_average_percents(wake_count, all_count)
+        deep_count_per_hour = round(deep_count / total_sleep_in_hours, 2)
+        light_count_per_hour = round(light_count / total_sleep_in_hours, 2)
+        rem_count_per_hour = round(rem_count / total_sleep_in_hours, 2)
+        wake_count_per_hour = round(wake_count / total_sleep_in_hours, 2)
 
         (one, two, three) = count_number_of_changes_by_one_two_and_three(levels_input)
-        one_in_percents = count_rounded_average_percents(one, all_count)
-        two_in_percents = count_rounded_average_percents(two, all_count)
-        three_in_percents = count_rounded_average_percents(three, all_count)
+        one_per_hour = round(one / total_sleep_in_hours, 2)
+        two_per_hour = round(two / total_sleep_in_hours, 2)
+        three_per_hour = round(three / total_sleep_in_hours, 2)
 
         return [
             input_name,
-            total_sleep_in_minutes,
-            deep_in_minutes,
-            light_in_minutes,
-            rem_in_minutes,
-            wake_in_minutes,
+            total_sleep_in_hours,
+            deep_in_hours,
+            light_in_hours,
+            rem_in_hours,
+            wake_in_hours,
             deep_in_percents,
             light_in_percents,
             rem_in_percents,
             wake_in_percents,
-            phase_duration_average_in_minutes,
+            phase_duration_average_in_hours,
             phase_duration_average_in_percents,
-            deviation_in_minutes,
+            deviation_in_hours,
             deviation_in_percents,
             all_count,
             deep_count,
             light_count,
             rem_count,
             wake_count,
-            deep_count_in_percents,
-            light_count_in_percents,
-            rem_count_in_percents,
-            wake_count_in_percents,
+            deep_count_per_hour,
+            light_count_per_hour,
+            rem_count_per_hour,
+            wake_count_per_hour,
             one,
             two,
             three,
-            one_in_percents,
-            two_in_percents,
-            three_in_percents
+            one_per_hour,
+            two_per_hour,
+            three_per_hour
         ]
 
 
@@ -304,7 +317,7 @@ if __name__ == '__main__':
         print("\n##################################################################################\n")
         database.print_fitbit_sync_info(cursor, parsing)
         print("\n##################################################################################\n")
-        database.print_ambient_noise(cursor, parsing)
+        database.print_battery_levels(cursor, parsing)
         print("\n##################################################################################\n")
 
         # Data processing
@@ -320,34 +333,34 @@ if __name__ == '__main__':
 
         statistics_data = [[
             "Date and name",
-            "Total (min)",
-            "Deep (min)",
-            "Light (min)",
-            "REM (min)",
-            "Wake (min)",
+            "Total (h)",
+            "Deep (h)",
+            "Light (h)",
+            "REM (h)",
+            "Wake (h)",
             "Deep (%)",
             "Light (%)",
             "Rem (%)",
             "Wake (%)",
-            "Average (min)",
+            "Average (h)",
             "Average (%)",
-            "Deviation (min)",
+            "Deviation (h)",
             "Deviation (%)",
             "Total count",
             "Deep count",
             "Light count",
             "Rem count",
             "Wake count",
-            "Deep count (%)",
-            "Light count (%)",
-            "Rem count (%)",
-            "Wake count (%)",
+            "Deep count (1/h)",
+            "Light count (1/h)",
+            "Rem count (1/h)",
+            "Wake count (1/h)",
             "Change by one",
             "Change by two",
             "Change by three",
-            "Change by one (%)",
-            "Change by two (%)",
-            "Change by three (%)"
+            "Change by one (1/h)",
+            "Change by two (1/h)",
+            "Change by three (1/h)"
         ]]
 
         dates = []
