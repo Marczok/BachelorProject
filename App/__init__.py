@@ -373,8 +373,10 @@ if __name__ == '__main__':
             dates.append(date)
             if date <= '2018-05-04':
                 name = date + " Travnickova"
-            else:
+            elif date <= '2018-05-13':
                 name = date + " Mikulcova"
+            else:
+                name = date + " Harthova"
 
             if date == '2018-05-04':
                 data = sleep[1]['levels']['data'] + sleep[0]['levels']['data']
@@ -387,7 +389,7 @@ if __name__ == '__main__':
                 csv_save.save_to_csv(times, levels, levels_as_word, duration, name)
                 # chart_class.create_chart(levels, times, duration, name)
 
-            if not date == '2018-05-04':
+            if not date == '2018-05-04' and not date == '2018-05-15':
                 statics = data_processing.count_sleep_statistics(sleep[0], levels, duration, name)
                 statistics_data.append(statics)
 
